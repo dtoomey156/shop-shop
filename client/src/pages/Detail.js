@@ -12,6 +12,7 @@ import {
   ADD_TO_CART,
   UPDATE_PRODUCTS,
 } from "../utils/actions";
+import { idbPromise } from "../utils/helpers";
 
 
 
@@ -42,21 +43,37 @@ function Detail() {
   }
 
   useEffect(() => {
+    // already in global store
     if (products.length) {
       setCurrentProduct(products.find(product => product._id === id));
+      // retrieved from server
     } else if (data) {
       dispatch({
         type: UPDATE_PRODUCTS,
         products: data.products
       });
+      data.products.forEach((product) => {
+        idbPromise('products', 'put', product);
+      });
+      // get cache from idb
+    } else if (!loading) {
+      idbPromise('products', 'get').then((indexedProducts) => {
+        dispatch({
+          type: UPDATE_PRODUCTS,
+          products: indexedProducts
+        });
+      });
     }
-  }, [products, data, dispatch, id]);
+  }, [products, data, dispatch, id, loading]);
 
   const removeFromCart = () => {
     dispatch({
       type: REMOVE_FROM_CART,
       _id: currentProduct._id
     });
+
+    // upon removal from cart, delete the item from IndexdDB using the 'currentProduct._id' to locate what to remove
+    idbPromise('cart', 'delete', { ...currentProduct });
   };
 
   return (
